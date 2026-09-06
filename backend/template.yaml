@@ -1,0 +1,531 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SkillSwap - Peer Skill Exchange Platform
+  Core MVP backend: Cognito auth, DynamoDB storage, Lambda functions, API Gateway
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        ALLOWED_ORIGIN: !Ref AllowedOrigin
+        SKILLS_TABLE: !Ref SkillsTable
+        TRANSACTIONS_TABLE: !Ref TransactionsTable
+        RATE_LIMITS_TABLE: !Ref RateLimitsTable
+        SESSIONS_TABLE: !Ref SessionsTable
+        CERTIFICATES_TABLE: !Ref CertificatesTable
+        STARTING_CREDITS: "20"
+        TEACHER_CUT: "8"
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  AllowedOrigin:
+    Type: String
+    Default: "http://localhost:3000"
+    Description: The frontend origin allowed to call this API (React dev server by default)
+
+Resources:
+
+  SkillSwapUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub skillswap-users-${Stage}
+      AutoVerifiedAttributes: [email]
+      UsernameAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+
+  SkillSwapUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub skillswap-client-${Stage}
+      UserPoolId: !Ref SkillSwapUserPool
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      GenerateSecret: false
+
+  # One item per user: profile + live credit balance
+  UsersTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: !Sub SkillSwap-Users-${Stage}
+      PrimaryKey:
+        Name: userId
+        Type: String
+
+  # One item per skill listing a user offers to teach
+  SkillsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub SkillSwap-Skills-${Stage}
+      AttributeDefinitions:
+        - AttributeName: skillId
+          AttributeType: S
+        - AttributeName: teacherId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: skillId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: byTeacher
+          KeySchema:
+            - AttributeName: teacherId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+
+  # Ledger of every credit movement (earn from teaching, spend on learning)
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub SkillSwap-Transactions-${Stage}
+      AttributeDefinitions:
+        - AttributeName: transactionId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: counterpartyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: transactionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: byUser
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: byCounterparty
+          KeySchema:
+            - AttributeName: counterpartyId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+
+  # Fixed-window counters backing the per-user / per-IP rate limiter.
+  # Items expire on their own via TTL, so this table never needs cleanup.
+  RateLimitsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub SkillSwap-RateLimits-${Stage}
+      AttributeDefinitions:
+        - AttributeName: rateLimitKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: rateLimitKey
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      BillingMode: PAY_PER_REQUEST
+
+  # Session logistics (link, location, suggested time, note) set by the
+  # teacher after a booking - keyed by transactionId, one-to-one with a booking
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub SkillSwap-Sessions-${Stage}
+      AttributeDefinitions:
+        - AttributeName: transactionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: transactionId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  # Certificates issued by a teacher declaring a learner has acquired a
+  # skill - one per booking, keyed by transactionId, same 1:1 relationship
+  # pattern as SessionsTable
+  CertificatesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub SkillSwap-Certificates-${Stage}
+      AttributeDefinitions:
+        - AttributeName: transactionId
+          AttributeType: S
+        - AttributeName: learnerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: transactionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: byLearner
+          KeySchema:
+            - AttributeName: learnerId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+
+  SkillSwapApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Cors:
+        AllowMethods: "'GET,POST,PUT,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: !Sub "'${AllowedOrigin}'"
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingRateLimit: 20
+          ThrottlingBurstLimit: 40
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt SkillSwapUserPool.Arn
+
+  # Called right after Cognito sign-up confirmation to create the app-side
+  # profile record and grant starting credits
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/createUser.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /users
+            Method: post
+
+  # Returns the caller's own profile, identified from their JWT - never
+  # takes an id in the path, so there is no way to fetch anyone else's data
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getUser.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /users/me
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  PostSkillFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/postSkill.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SkillsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /skills
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  BrowseSkillsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/browseSkills.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SkillsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /skills
+            Method: get
+
+  MatchSkillsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/matchSkills.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SkillsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /match
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  TransferCreditsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/transferCredits.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /credits/transfer
+            Method: post
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Returns the caller's own booking history (as the learner) - reads from
+  # the byUser GSI, never takes a user id in the path or body
+  GetTransactionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getTransactions.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /transactions/me
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Mirror of GetTransactionsFunction, but from the teacher's side - returns
+  # bookings where the caller is the counterparty (teacher), not the learner
+  GetTeachingBookingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getTeachingBookings.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /transactions/teaching
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Teacher-only write: sets session logistics for one specific booking,
+  # verified against the real transaction record, never trusts the client
+  PutSessionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/putSession.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /sessions/{transactionId}
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Read access limited to the two real participants on that booking
+  GetSessionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getSession.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /sessions/{transactionId}
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Teacher-only write: certifies a learner has acquired a skill for one
+  # specific booking, same ownership verification pattern as PutSessionFunction
+  IssueCertificateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/issueCertificate.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TransactionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CertificatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /certificates/{transactionId}
+            Method: put
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Read access limited to the two real participants on that booking
+  GetCertificateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getCertificate.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CertificatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /certificates/{transactionId}
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  # Returns the caller's own full certificate list (as the learner) - reads
+  # from the byLearner GSI, same pattern as GetTransactionsFunction
+  GetCertificatesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getCertificates.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CertificatesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /certificates/me
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  GetUserPublicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/getUserPublic.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RateLimitsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SkillSwapApi
+            Path: /users/{userId}/public
+            Method: get
+
+  # WAF - blocks abusive IPs before they ever reach API Gateway
+  SkillSwapWebAcl:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub skillswap-waf-${Stage}
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub skillswap-waf-${Stage}
+      Rules:
+        - Name: RateLimitPerIp
+          Priority: 0
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              Limit: 300
+              AggregateKeyType: IP
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitPerIp
+        - Name: AWSCommonRuleSet
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSCommonRuleSet
+
+  SkillSwapWebAclAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub arn:aws:apigateway:${AWS::Region}::/restapis/${SkillSwapApi}/stages/${Stage}
+      WebACLArn: !GetAtt SkillSwapWebAcl.Arn
+
+Outputs:
+  ApiUrl:
+    Description: Base URL for the SkillSwap API
+    Value: !Sub https://${SkillSwapApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/
+  UserPoolId:
+    Value: !Ref SkillSwapUserPool
+  UserPoolClientId:
+    Value: !Ref SkillSwapUserPoolClient

@@ -1,0 +1,9 @@
+{
+  "name": "skillswap-backend",
+  "version": "0.1.0",
+  "description": "SkillSwap serverless backend - Lambda handlers",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.600.0",
+    "@aws-sdk/lib-dynamodb": "^3.600.0"
+  }
+}
