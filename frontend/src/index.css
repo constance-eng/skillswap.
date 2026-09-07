@@ -25,6 +25,7 @@
   --ink-muted: 138 106 91;
   --ink-on-dark: 251 247 242;
   --ink-on-dark-muted: 196 199 206;
+  --ink-on-light: 61 36 30;
 
   --rule: 228 213 196;
   --error: 163 40 30;
@@ -56,6 +57,7 @@
   --ink-muted: 149 158 176;
   --ink-on-dark: 26 31 43;
   --ink-on-dark-muted: 58 68 89;
+  --ink-on-light: 61 36 30;
 
   --rule: 55 64 82;
   --error: 232 122 110;

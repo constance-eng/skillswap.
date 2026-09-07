@@ -31,7 +31,7 @@ export function TeacherCard({ skill }) {
         )}
         <p className="font-medium text-ink-primary">{skill.title}</p>
         <div className="flex items-center gap-2 mt-1">
-          <span className="eyebrow inline-block text-cocoa-deep bg-apricot-light rounded-pill px-2 py-0.5">
+          <span className="eyebrow inline-block text-ink-onlight bg-apricot-light rounded-pill px-2 py-0.5">
             {skill.category}
           </span>
           {typeof skill.matchScore === "number" && (

@@ -31,6 +31,7 @@ export default {
           muted: "rgb(var(--ink-muted) / <alpha-value>)",
           onDark: "rgb(var(--ink-on-dark) / <alpha-value>)",
           onDarkMuted: "rgb(var(--ink-on-dark-muted) / <alpha-value>)",
+          onLight: "rgb(var(--ink-on-light) / <alpha-value>)",
         },
         rule: "rgb(var(--rule) / <alpha-value>)",
         error: "rgb(var(--error) / <alpha-value>)",

@@ -57,7 +57,7 @@ function BookingRow({ booking, otherPersonId, linkPrefix, certified }) {
           Certified
         </span>
       ) : (
-        <span className="eyebrow text-cocoa-deep bg-apricot-light rounded-pill px-3 py-1.5">
+        <span className="eyebrow text-ink-onlight bg-apricot-light rounded-pill px-3 py-1.5">
           View
         </span>
       )}
