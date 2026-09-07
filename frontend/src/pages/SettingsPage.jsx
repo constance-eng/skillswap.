@@ -7,12 +7,15 @@ import { Modal } from "../components/Modal";
 import { ComingSoonBanner } from "../components/ComingSoonBanner";
 import { PasswordInput } from "../components/PasswordInput";
 import { useTheme } from "../theme/ThemeContext";
+import { Edit3 } from "lucide-react";
+import { EditProfileModal } from "../components/EditProfileModal";
 
 export function SettingsPage() {
   const { profile, logout } = useAuth();
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const [editingProfile, setEditingProfile] = useState(false);
 
   function handleLogout() {
     logout();
@@ -24,7 +27,15 @@ export function SettingsPage() {
       <h1 className="mb-6 text-2xl font-display text-ink-primary">Settings</h1>
 
       <section className="p-6 mb-6 border bg-paper-bright rounded-card border-rule">
-        <h2 className="mb-4 text-lg font-display text-ink-primary">Account</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-display text-ink-primary">Account</h2>
+          <button
+            onClick={() => setEditingProfile(true)}
+            className="flex items-center gap-1.5 text-sm text-navy hover:underline"
+          >
+            <Edit3 size={14} aria-hidden="true" /> Edit
+          </button>
+        </div>
         <div className="mb-5 space-y-3">
           <div>
             <p className="mb-1 eyebrow text-ink-muted">Name</p>
@@ -34,6 +45,12 @@ export function SettingsPage() {
             <p className="mb-1 eyebrow text-ink-muted">Email</p>
             <p className="text-sm text-ink-primary">{profile?.email ?? "..."}</p>
           </div>
+          <div>
+            <p className="mb-1 eyebrow text-ink-muted">Bio</p>
+            <p className="text-sm text-ink-primary">
+              {profile?.bio || <span className="italic text-ink-muted">No bio yet</span>}
+            </p>
+          </div>
         </div>
 
         <button onClick={() => setModalOpen(true)} className="btn-secondary">
@@ -41,6 +58,8 @@ export function SettingsPage() {
           Change password
         </button>
       </section>
+
+      {editingProfile && <EditProfileModal onClose={() => setEditingProfile(false)} />}
 
       <section className="p-6 mb-6 border bg-paper-bright rounded-card border-rule">
         <h2 className="mb-2 text-lg font-display text-ink-primary">Appearance</h2>
