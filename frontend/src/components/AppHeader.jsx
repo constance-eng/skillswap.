@@ -153,7 +153,7 @@ export function AppHeader() {
               </button>
             </div>
 
-            <nav className="flex flex-col gap-1 text-sm text-navy-soft">
+            <nav className="flex flex-col gap-1 text-sm text-ink-onlight">
               {isLoggedIn ? (
                 <>
                   {profile && (
