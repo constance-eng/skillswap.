@@ -36,7 +36,7 @@ export function MatchesPage() {
 
   return (
     <div className="max-w-5xl px-6 py-8 mx-auto">
-      <h1 className="mb-2 text-2xl font-semibold text-ink-primary">Matches</h1>
+      <h1 className="mb-2 text-2xl font-display text-ink-primary">Matches</h1>
       <p className="mb-6 text-sm text-ink-secondary">
         People whose skills match what you want to learn
       </p>
@@ -55,14 +55,10 @@ export function MatchesPage() {
             placeholder="What do you want to learn?"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full py-3 pl-10 pr-4 border outline-none bg-bg-panel text-ink-primary placeholder:text-ink-muted rounded-xl border-accent-soft focus-visible:border-accent-dark"
+            className="pl-10 field"
           />
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-6 font-medium transition-opacity bg-accent text-accent-dark rounded-pill hover:opacity-90 disabled:opacity-50"
-        >
+        <button type="submit" disabled={loading} className="btn-primary">
           {loading ? "Searching..." : "Search"}
         </button>
       </form>

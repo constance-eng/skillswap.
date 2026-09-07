@@ -82,7 +82,7 @@ export function TeacherDetailPage() {
     return (
       <div className="max-w-2xl px-6 py-8 mx-auto text-center">
         <p className="mb-2 font-medium text-ink-primary">Teacher not found</p>
-        <Link to="/browse" className="text-sm text-accent-dark hover:underline">
+        <Link to="/browse" className="text-sm text-navy hover:underline">
           Back to browse
         </Link>
       </div>
@@ -91,13 +91,13 @@ export function TeacherDetailPage() {
 
   return (
     <div className="max-w-2xl px-6 py-8 mx-auto">
-      <div className="p-6 mb-6 border bg-bg-panel rounded-card border-accent-soft">
+      <div className="p-6 mb-6 border bg-paper-bright rounded-card border-rule shadow-soft">
         <div className="flex items-center gap-4">
-          <div className="flex items-center justify-center text-xl font-semibold rounded-full w-14 h-14 bg-accent text-accent-dark">
+          <div className="flex items-center justify-center text-xl font-semibold rounded-full w-14 h-14 bg-navy text-ink-onDark">
             {teacher.name?.charAt(0)?.toUpperCase() ?? "?"}
           </div>
           <div>
-            <p className="text-lg font-semibold text-ink-primary">{teacher.name}</p>
+            <p className="text-lg font-display text-ink-primary">{teacher.name}</p>
             <div className="flex items-center gap-1 mt-1 text-xs text-ink-muted">
               <ShieldCheck size={14} aria-hidden="true" />
               Verified badges coming soon
@@ -106,7 +106,7 @@ export function TeacherDetailPage() {
         </div>
       </div>
 
-      <h2 className="mb-4 text-lg font-medium text-ink-primary">Skills offered</h2>
+      <h2 className="mb-4 text-lg font-display text-ink-primary">Skills offered</h2>
 
       {teacherSkills?.length === 0 && (
         <p className="text-sm text-ink-secondary">This teacher hasn't posted any skills yet</p>
@@ -114,10 +114,10 @@ export function TeacherDetailPage() {
 
       <div className="space-y-4">
         {teacherSkills?.map((skill) => (
-          <div key={skill.skillId} className="p-5 border bg-bg-panel rounded-card border-accent-soft">
+          <div key={skill.skillId} className="p-5 border bg-paper-bright rounded-card border-rule">
             <div className="flex items-start justify-between mb-2">
               <p className="font-medium text-ink-primary">{skill.title}</p>
-              <span className="text-xs text-accent-dark bg-accent-soft rounded-pill px-2 py-0.5">
+              <span className="eyebrow text-ink-onLight bg-apricot-light rounded-pill px-2 py-0.5">
                 {skill.category}
               </span>
             </div>
@@ -134,7 +134,7 @@ export function TeacherDetailPage() {
               <button
                 onClick={() => handleRequestSession(skill)}
                 disabled={!hasEnoughCredits || bookingSkillId === skill.skillId}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity bg-accent text-accent-dark rounded-pill hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary"
               >
                 <Coins size={16} aria-hidden="true" />
                 {bookingSkillId === skill.skillId ? "Requesting..." : "Request session - 10 credits"}

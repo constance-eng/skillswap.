@@ -34,31 +34,28 @@ export function ProfilePage() {
 
   return (
     <div className="max-w-3xl px-6 py-8 mx-auto">
-      <div className="p-6 mb-8 border bg-bg-panel rounded-card border-accent-soft">
+      <div className="p-6 mb-8 border bg-paper-bright rounded-card border-rule shadow-soft">
         <div className="flex items-center gap-4 mb-2">
-          <div className="flex items-center justify-center text-xl font-semibold rounded-full w-14 h-14 bg-accent text-accent-dark">
+          <div className="flex items-center justify-center text-xl font-semibold rounded-full w-14 h-14 bg-navy text-ink-onDark">
             {profile?.name?.charAt(0)?.toUpperCase() ?? "?"}
           </div>
           <div>
-            <p className="text-lg font-semibold text-ink-primary">
+            <p className="text-lg font-display text-ink-primary">
               {profile?.name ?? "Loading..."}
             </p>
             <p className="text-sm text-ink-secondary">{profile?.email}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-sm text-ink-secondary mt-3">
-          <CheckCircle2 size={16} className="text-accent-dark" aria-hidden="true" />
+          <CheckCircle2 size={16} className="text-navy" aria-hidden="true" />
           Identity confirmed
         </div>
       </div>
 
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-ink-primary">Skills I can teach</h2>
-          <Link
-            to="/skills/new"
-            className="flex items-center gap-1.5 text-sm bg-accent text-accent-dark font-medium rounded-pill px-4 py-2 hover:opacity-90 transition-opacity"
-          >
+          <h2 className="text-lg font-display text-ink-primary">Skills I can teach</h2>
+          <Link to="/skills/new" className="btn-primary">
             <Plus size={16} aria-hidden="true" /> Add skill
           </Link>
         </div>
@@ -92,8 +89,8 @@ export function ProfilePage() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-medium text-ink-primary">Skills I want to learn</h2>
-        <div className="p-5 border bg-bg-panel rounded-card border-accent-soft">
+        <h2 className="mb-4 text-lg font-display text-ink-primary">Skills I want to learn</h2>
+        <div className="p-5 border bg-paper-bright rounded-card border-rule">
           <p className="text-sm text-ink-secondary">
             Not built yet - the backend doesn't currently store what you want to learn, only what you teach.
           </p>

@@ -15,13 +15,13 @@ function TransactionRow({ tx }) {
   });
 
   return (
-    <div className="flex items-center justify-between py-3 border-b border-accent-soft last:border-b-0">
+    <div className="flex items-center justify-between py-3 border-b border-rule last:border-b-0">
       <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-accent-soft">
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-apricot-light">
           {isSpend ? (
-            <ArrowUpRight size={16} className="text-accent-dark" aria-hidden="true" />
+            <ArrowUpRight size={16} className="text-ink-onLight" aria-hidden="true" />
           ) : (
-            <ArrowDownLeft size={16} className="text-accent-dark" aria-hidden="true" />
+            <ArrowDownLeft size={16} className="text-ink-onLight" aria-hidden="true" />
           )}
         </div>
         <div>
@@ -31,7 +31,7 @@ function TransactionRow({ tx }) {
           <p className="text-xs text-ink-muted">{date}</p>
         </div>
       </div>
-      <p className="text-sm font-semibold text-ink-primary">
+      <p className="text-sm font-semibold text-ink-primary tabular">
         {isSpend ? "-" : "+"}{tx.amount}
       </p>
     </div>
@@ -63,26 +63,26 @@ export function WalletPage() {
 
   return (
     <div className="max-w-2xl px-6 py-8 mx-auto">
-      <h1 className="mb-6 text-2xl font-semibold text-ink-primary">Wallet</h1>
+      <h1 className="mb-6 text-2xl font-display text-ink-primary">Wallet</h1>
 
-      <div className="p-6 mb-6 text-center border bg-bg-panel rounded-card border-accent-soft">
-        <div className="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-accent-soft">
-          <Coins size={22} className="text-accent-dark" aria-hidden="true" />
+      <div className="p-6 mb-6 text-center bg-navy rounded-card shadow-soft">
+        <div className="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-navy-light">
+          <Coins size={22} className="text-apricot" aria-hidden="true" />
         </div>
-        <p className="text-3xl font-semibold text-ink-primary">
+        <p className="text-3xl font-display text-ink-onDark tabular">
           {profile?.creditBalance ?? "..."}
         </p>
-        <p className="text-sm text-ink-secondary">credits available</p>
+        <p className="text-sm text-ink-onDarkMuted">credits available</p>
       </div>
 
-      <div className="p-5 mb-6 border bg-bg-panel rounded-card border-accent-soft">
+      <div className="p-5 mb-6 border bg-paper-bright rounded-card border-rule">
         <p className="text-sm text-ink-secondary">
           Start with 20 credits. Every session you request costs 10 credits.
           Teaching earns you credits back.
         </p>
       </div>
 
-      <h2 className="mb-4 text-lg font-medium text-ink-primary">Transaction history</h2>
+      <h2 className="mb-4 text-lg font-display text-ink-primary">Transaction history</h2>
 
       {loading && (
         <div className="space-y-2">
@@ -102,7 +102,7 @@ export function WalletPage() {
       )}
 
       {!loading && !error && transactions?.length > 0 && (
-        <div className="p-5 border bg-bg-panel rounded-card border-accent-soft">
+        <div className="p-5 border bg-paper-bright rounded-card border-rule">
           {transactions.map((tx) => (
             <TransactionRow key={tx.transactionId} tx={tx} />
           ))}
