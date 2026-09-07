@@ -12,6 +12,8 @@ export function ConfirmEmailPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resendStatus, setResendStatus] = useState("");
+  const [resendBusy, setResendBusy] = useState(false);
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -34,6 +36,21 @@ export function ConfirmEmailPage() {
       setError(err.message || "That code didn't work");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendStatus("");
+    setError("");
+    setResendBusy(true);
+    try {
+      await cognito.resendConfirmationCode(email);
+      setResendStatus("A new code has been sent to your email");
+    } catch (err) {
+      setResendStatus("");
+      setError(err.message || "Couldn't resend the code");
+    } finally {
+      setResendBusy(false);
     }
   }
 
@@ -86,6 +103,20 @@ export function ConfirmEmailPage() {
             {busy ? "Confirming..." : "Confirm"}
           </button>
         </form>
+
+        <div className="mt-5 text-center">
+          {resendStatus ? (
+            <p className="text-sm text-ink-secondary">{resendStatus}</p>
+          ) : (
+            <button
+              onClick={handleResend}
+              disabled={resendBusy}
+              className="text-sm font-medium text-navy hover:underline disabled:opacity-50"
+            >
+              {resendBusy ? "Sending..." : "Didn't get a code? Resend it"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -22,6 +22,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { CertificatesPage } from "./pages/CertificatesPage";
 import { CertificateDetailPage } from "./pages/CertificateDetailPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 
 function Layout({ children }) {
   return (
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/confirm" element={<ConfirmEmailPage />} />
             <Route path="/browse" element={<Layout><BrowseSkillsPage/></Layout>}></Route>
+            <Route path="/forgot" element={<ForgotPasswordPage />} />
             <Route path="/skills/new" element={<ProtectedRoute><Layout><AddSkillPage/></Layout></ProtectedRoute>}/>
             <Route path="/profile" element={<ProtectedRoute><Layout><ProfilePage/></Layout></ProtectedRoute>}/>
             <Route path="/teacher/:id" element={<ProtectedRoute><Layout><TeacherDetailPage/></Layout></ProtectedRoute>}/>

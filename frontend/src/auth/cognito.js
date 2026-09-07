@@ -69,6 +69,36 @@ export function getCurrentSession() {
   });
 }
 
+export function forgotPassword(email) {
+  const user = new CognitoUser({ Username: email, Pool: pool });
+  return new Promise((resolve, reject) => {
+    user.forgotPassword({
+      onSuccess: (result) => resolve(result),
+      onFailure: (err) => reject(err),
+    });
+  });
+}
+
+export function confirmForgotPassword(email, code, newPassword) {
+  const user = new CognitoUser({ Username: email, Pool: pool });
+  return new Promise((resolve, reject) => {
+    user.confirmPassword(code, newPassword, {
+      onSuccess: () => resolve(),
+      onFailure: (err) => reject(err),
+    });
+  });
+}
+
+export function resendConfirmationCode(email) {
+  const user = new CognitoUser({ Username: email, Pool: pool });
+  return new Promise((resolve, reject) => {
+    user.resendConfirmationCode((err, result) => {
+      if (err) return reject(err);
+      resolve(result);
+    });
+  });
+}
+
 export function logout() {
   const user = pool.getCurrentUser();
   if (user) user.signOut();
