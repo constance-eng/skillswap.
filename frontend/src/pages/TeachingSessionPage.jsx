@@ -1,14 +1,29 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { Award } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
-import { Award } from "lucide-react";
+
+async function loadExistingSession(transactionId, idToken) {
+  try {
+    const data = await apiRequest(`/sessions/${transactionId}`, { token: idToken });
+    return data.session;
+  } catch (err) {
+    if (err.status === 404) return null;
+    throw err;
+  }
+}
 
 export function TeachingSessionPage() {
   const { transactionId } = useParams();
   const { idToken } = useAuth();
+  const { data: existing, error, loading, reload } = useFetch(
+    () => loadExistingSession(transactionId, idToken),
+    [transactionId, idToken]
+  );
 
   const [format, setFormat] = useState("online");
   const [sessionLink, setSessionLink] = useState("");
@@ -16,9 +31,16 @@ export function TeachingSessionPage() {
   const [suggestedDateTime, setSuggestedDateTime] = useState("");
   const [note, setNote] = useState("");
 
-  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!existing) return;
+    setFormat(existing.format || "online");
+    setSessionLink(existing.sessionLink || "");
+    setLocation(existing.location || "");
+    setSuggestedDateTime(existing.suggestedDateTime ? existing.suggestedDateTime.slice(0, 16) : "");
+    setNote(existing.note || "");
+  }, [existing]);
+
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -26,27 +48,6 @@ export function TeachingSessionPage() {
   const [certIssued, setCertIssued] = useState(false);
   const [certError, setCertError] = useState("");
   const [certBusy, setCertBusy] = useState(false);
-
-  useEffect(() => {
-    async function loadExisting() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await apiRequest(`/sessions/${transactionId}`, { token: idToken });
-        const s = data.session;
-        setFormat(s.format || "online");
-        setSessionLink(s.sessionLink || "");
-        setLocation(s.location || "");
-        setSuggestedDateTime(s.suggestedDateTime ? s.suggestedDateTime.slice(0, 16) : "");
-        setNote(s.note || "");
-      } catch (err) {
-        if (err.status !== 404) setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadExisting();
-  }, [transactionId, idToken]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -102,7 +103,7 @@ export function TeachingSessionPage() {
   if (error) {
     return (
       <div className="max-w-lg px-6 py-8 mx-auto">
-        <ErrorState message={error} onRetry={() => window.location.reload()} />
+        <ErrorState message={error} onRetry={reload} />
       </div>
     );
   }

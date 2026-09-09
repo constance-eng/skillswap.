@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
 
@@ -39,59 +39,48 @@ function InlineStat({ label, value, sublabel, to }) {
   );
 }
 
+async function loadDashboardData(userId, idToken) {
+  const skillsData = await apiRequest("/skills");
+  const mySkills = skillsData.skills.filter((s) => s.teacherId === userId);
+
+  const matchData = await apiRequest("/match", {
+    method: "POST",
+    token: idToken,
+    body: { query: mySkills.map((s) => s.title).join(" ") || "general" },
+  });
+
+  const txData = await apiRequest("/transactions/me", { token: idToken });
+  const certified = await Promise.all(
+    txData.transactions.map(async (tx) => {
+      try {
+        await apiRequest(`/certificates/${tx.transactionId}`, { token: idToken });
+        return true;
+      } catch {
+        return false;
+      }
+    })
+  );
+  const recentBookings = txData.transactions.filter((_, i) => !certified[i]).slice(0, 3);
+
+  const certData = await apiRequest("/certificates/me", { token: idToken });
+
+  return {
+    mySkills,
+    allSkills: skillsData.skills,
+    matches: matchData.matches.slice(0, 3),
+    recentBookings,
+    certCount: certData.certificates.length,
+  };
+}
+
 export function DashboardPage() {
   const { userId, idToken, profile } = useAuth();
-  const [mySkills, setMySkills] = useState(null);
-  const [allSkills, setAllSkills] = useState(null);
-  const [matches, setMatches] = useState(null);
-  const [recentBookings, setRecentBookings] = useState(null);
-  const [certCount, setCertCount] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
-  async function loadData() {
-    setLoading(true);
-    setError(null);
-    try {
-      const skillsData = await apiRequest("/skills");
-      const mine = skillsData.skills.filter((s) => s.teacherId === userId);
-      setMySkills(mine);
-      setAllSkills(skillsData.skills);
-
-      const matchData = await apiRequest("/match", {
-        method: "POST",
-        token: idToken,
-        body: { query: mine.map((s) => s.title).join(" ") || "general" },
-      });
-      setMatches(matchData.matches.slice(0, 3));
-
-      const txData = await apiRequest("/transactions/me", { token: idToken });
-      const certified = await Promise.all(
-        txData.transactions.map(async (tx) => {
-          try {
-            await apiRequest(`/certificates/${tx.transactionId}`, { token: idToken });
-            return true;
-          } catch {
-            return false;
-          }
-        })
-      );
-      const stillPending = txData.transactions.filter((_, i) => !certified[i]);
-      setRecentBookings(stillPending.slice(0, 3));
-
-      const certData = await apiRequest("/certificates/me", { token: idToken });
-      setCertCount(certData.certificates.length);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadData();
-  }, [userId]);
+  const { data, error, loading, reload } = useFetch(
+    () => loadDashboardData(userId, idToken),
+    [userId]
+  );
+  const { mySkills, allSkills, matches, recentBookings, certCount } = data ?? {};
 
   const firstName = profile?.name?.split(" ")[0];
 
@@ -130,7 +119,7 @@ export function DashboardPage() {
         </div>
       </section>
 
-      {error && <ErrorState message={error} onRetry={loadData} />}
+      {error && <ErrorState message={error} onRetry={reload} />}
 
       {!error && (
         <>

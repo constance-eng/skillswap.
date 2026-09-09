@@ -51,7 +51,7 @@ function validate(body, schema) {
   return { valid: errors.length === 0, errors };
 }
 
-// trims whitespace and strips control characters from every string field
+// trim whitespace and strip control characters
 function sanitize(body) {
   const clean = {};
   for (const [key, value] of Object.entries(body || {})) {

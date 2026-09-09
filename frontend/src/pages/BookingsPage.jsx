@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Users, GraduationCap, Plus, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { Skeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -87,44 +88,20 @@ export function BookingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") === "learning" ? "learning" : "teaching";
 
-  const [teachingPending, setTeachingPending] = useState(null);
-  const [teachingCompleted, setTeachingCompleted] = useState(null);
-  const [learningPending, setLearningPending] = useState(null);
-  const [learningCompleted, setLearningCompleted] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  async function loadBoth() {
-    setLoading(true);
-    setError(null);
-    try {
-      const [teachData, learnData] = await Promise.all([
-        apiRequest("/transactions/teaching", { token: idToken }),
-        apiRequest("/transactions/me", { token: idToken }),
-      ]);
-
-      const [teachSplit, learnSplit] = await Promise.all([
-        splitByCertification(teachData.bookings, idToken),
-        splitByCertification(learnData.transactions, idToken),
-      ]);
-
-      setTeachingPending(teachSplit.pending);
-      setTeachingCompleted(teachSplit.completed);
-      setLearningPending(learnSplit.pending);
-      setLearningCompleted(learnSplit.completed);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadBoth();
+  const { data, error, loading, reload } = useFetch(async () => {
+    const [teachData, learnData] = await Promise.all([
+      apiRequest("/transactions/teaching", { token: idToken }),
+      apiRequest("/transactions/me", { token: idToken }),
+    ]);
+    const [teaching, learning] = await Promise.all([
+      splitByCertification(teachData.bookings, idToken),
+      splitByCertification(learnData.transactions, idToken),
+    ]);
+    return { teaching, learning };
   }, [idToken]);
 
-  const pending = activeTab === "teaching" ? teachingPending : learningPending;
-  const completed = activeTab === "teaching" ? teachingCompleted : learningCompleted;
+  const pending = data?.[activeTab]?.pending;
+  const completed = data?.[activeTab]?.completed;
 
   return (
     <div className="max-w-2xl px-6 py-8 mx-auto">
@@ -166,7 +143,7 @@ export function BookingsPage() {
         </div>
       )}
 
-      {!loading && error && <ErrorState message={error} onRetry={loadBoth} />}
+      {!loading && error && <ErrorState message={error} onRetry={reload} />}
 
       {!loading && !error && (
         <>

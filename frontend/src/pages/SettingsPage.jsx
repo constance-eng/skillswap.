@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, KeyRound, Trash2 } from "lucide-react";
+import { LogOut, KeyRound, Trash2, Edit3 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import * as cognito from "../auth/cognito";
 import { Modal } from "../components/Modal";
 import { ComingSoonBanner } from "../components/ComingSoonBanner";
 import { PasswordInput } from "../components/PasswordInput";
 import { useTheme } from "../theme/ThemeContext";
-import { Edit3 } from "lucide-react";
 import { EditProfileModal } from "../components/EditProfileModal";
 
 export function SettingsPage() {

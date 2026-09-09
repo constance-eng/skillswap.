@@ -6,7 +6,6 @@ export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("skillswap-theme");
     if (saved === "dark" || saved === "light") return saved;
-    // no saved choice - follow whatever the operating system prefers
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
 

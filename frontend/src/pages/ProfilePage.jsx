@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { SkillCard } from "../components/SkillCard";
 import { Skeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
@@ -10,26 +10,10 @@ import { ErrorState } from "../components/ErrorState";
 
 export function ProfilePage() {
   const { userId, profile } = useAuth();
-  const [mySkills, setMySkills] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
-  async function loadSkills() {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiRequest("/skills");
-      setMySkills(data.skills.filter((s) => s.teacherId === userId));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadSkills();
+  const { data: mySkills, error, loading, reload } = useFetch(async () => {
+    const data = await apiRequest("/skills");
+    return data.skills.filter((s) => s.teacherId === userId);
   }, [userId]);
 
   return (
@@ -67,7 +51,7 @@ export function ProfilePage() {
           </div>
         )}
 
-        {!loading && error && <ErrorState message={error} onRetry={loadSkills} />}
+        {!loading && error && <ErrorState message={error} onRetry={reload} />}
 
         {!loading && !error && mySkills?.length === 0 && (
           <EmptyState
