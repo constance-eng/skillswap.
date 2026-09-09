@@ -1,20 +1,10 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
 const { randomUUID } = require("crypto");
-const { validate, sanitize } = require("../lib/validate");
-const { checkRateLimit } = require("../lib/rateLimit");
+const { withHandler, respond, parseBody, requireAuth, enforceRateLimit } = require("../lib/http");
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const TABLE = process.env.SKILLS_TABLE;
-
-const response = (statusCode, body) => ({
-  statusCode,
-  headers: {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",
-  },
-  body: JSON.stringify(body),
-});
 
 const schema = {
   title: { type: "string", required: true, minLength: 1, maxLength: 200 },
@@ -23,39 +13,22 @@ const schema = {
   creditCost: { type: "number", min: 1, max: 100 },
 };
 
-exports.handler = async (event) => {
-  try {
-    const teacherId = event.requestContext?.authorizer?.claims?.sub;
-    if (!teacherId) return response(401, { error: "Unauthorized" });
+exports.handler = withHandler(async (event) => {
+  const teacherId = requireAuth(event);
+  await enforceRateLimit(`postSkill#${teacherId}`, 10, 60, "too many skills posted, try again in a minute");
 
-    const { allowed } = await checkRateLimit(`postSkill#${teacherId}`, 10, 60);
-    if (!allowed) {
-      return response(429, { error: "too many skills posted, try again in a minute" });
-    }
+  const { title, description, category, creditCost } = parseBody(event, schema);
+  const skill = {
+    skillId: randomUUID(),
+    teacherId,
+    title,
+    description,
+    category: category || "general",
+    creditCost: creditCost || 1,
+    createdAt: new Date().toISOString(),
+  };
 
-    const body = sanitize(JSON.parse(event.body || "{}"));
-    const { valid, errors } = validate(body, schema);
-    if (!valid) {
-      return response(400, { error: "validation failed", details: errors });
-    }
+  await client.send(new PutCommand({ TableName: TABLE, Item: skill }));
 
-    const { title, description, category, creditCost } = body;
-
-    const skill = {
-      skillId: randomUUID(),
-      teacherId,
-      title,
-      description,
-      category: category || "general",
-      creditCost: creditCost || 1,
-      createdAt: new Date().toISOString(),
-    };
-
-    await client.send(new PutCommand({ TableName: TABLE, Item: skill }));
-
-    return response(201, { message: "Skill posted", skill });
-  } catch (err) {
-    console.error(err);
-    return response(500, { error: "Internal server error" });
-  }
-};
+  return respond(201, { message: "Skill posted", skill });
+});
