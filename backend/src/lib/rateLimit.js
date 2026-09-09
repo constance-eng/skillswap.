@@ -4,7 +4,6 @@ const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const TABLE = process.env.RATE_LIMITS_TABLE;
 
-// fixed-window limiter: "key" gets `limit` requests per `windowSeconds`, then blocks
 async function checkRateLimit(key, limit, windowSeconds) {
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - (now % windowSeconds);

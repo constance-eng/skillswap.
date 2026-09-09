@@ -26,7 +26,6 @@ exports.handler = withHandler(async (event) => {
   );
   if (!booking) return respond(404, { error: "Booking not found" });
 
-  // only the teacher on this exact booking may set its session details
   if (booking.counterpartyId !== requesterId) {
     return respond(403, { error: "Only the teacher can set session details" });
   }

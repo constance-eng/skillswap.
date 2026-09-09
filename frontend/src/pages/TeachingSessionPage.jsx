@@ -31,7 +31,6 @@ export function TeachingSessionPage() {
   const [suggestedDateTime, setSuggestedDateTime] = useState("");
   const [note, setNote] = useState("");
 
-  // seed the form once the existing session (if any) has loaded
   useEffect(() => {
     if (!existing) return;
     setFormat(existing.format || "online");

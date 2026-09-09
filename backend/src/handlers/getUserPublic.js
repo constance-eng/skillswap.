@@ -12,7 +12,6 @@ exports.handler = withHandler(async (event) => {
   const { Item } = await client.send(new GetCommand({ TableName: TABLE, Key: { userId: targetUserId } }));
   if (!Item) return respond(404, { error: "User not found" });
 
-  // deliberately only expose fields that are safe for anyone to see
   const publicProfile = { userId: Item.userId, name: Item.name, averageRating: Item.averageRating ?? null };
   return respond(200, { user: publicProfile });
 });

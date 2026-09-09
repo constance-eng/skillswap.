@@ -1,7 +1,6 @@
 const { validate, sanitize } = require("./validate");
 const { checkRateLimit } = require("./rateLimit");
 
-// thrown from anywhere inside a handler to short-circuit straight to an HTTP response
 class HttpError extends Error {
   constructor(statusCode, message, details) {
     super(message);
@@ -21,10 +20,6 @@ function respond(statusCode, body) {
   };
 }
 
-// wraps a handler so every route gets the same headers, error shape, and logging
-// without repeating a try/catch in every file. `mapError` lets a handler translate
-// a specific AWS SDK error (e.g. a failed ConditionExpression) into a meaningful
-// status code before falling back to a generic 500.
 function withHandler(fn, mapError) {
   return async (event) => {
     try {
