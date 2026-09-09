@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Award } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { Skeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
-import { Link } from "react-router-dom";
 
 function CertificateCard({ cert }) {
   const [skillTitle, setSkillTitle] = useState(null);
@@ -63,26 +64,10 @@ function CertificateCard({ cert }) {
 
 export function CertificatesPage() {
   const { idToken } = useAuth();
-  const [certificates, setCertificates] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  async function loadCertificates() {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiRequest("/certificates/me", { token: idToken });
-      setCertificates(data.certificates);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadCertificates();
-  }, [idToken]);
+  const { data: certificates, error, loading, reload } = useFetch(
+    async () => (await apiRequest("/certificates/me", { token: idToken })).certificates,
+    [idToken]
+  );
 
   return (
     <div className="max-w-3xl px-6 py-8 mx-auto">
@@ -98,7 +83,7 @@ export function CertificatesPage() {
         </div>
       )}
 
-      {!loading && error && <ErrorState message={error} onRetry={loadCertificates} />}
+      {!loading && error && <ErrorState message={error} onRetry={reload} />}
 
       {!loading && !error && certificates?.length === 0 && (
         <EmptyState

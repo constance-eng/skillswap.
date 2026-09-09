@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Coins } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { Skeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -40,26 +40,10 @@ function TransactionRow({ tx }) {
 
 export function WalletPage() {
   const { idToken, profile } = useAuth();
-  const [transactions, setTransactions] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  async function loadTransactions() {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiRequest("/transactions/me", { token: idToken });
-      setTransactions(data.transactions);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadTransactions();
-  }, [idToken]);
+  const { data: transactions, error, loading, reload } = useFetch(
+    async () => (await apiRequest("/transactions/me", { token: idToken })).transactions,
+    [idToken]
+  );
 
   return (
     <div className="max-w-2xl px-6 py-8 mx-auto">
@@ -91,7 +75,7 @@ export function WalletPage() {
         </div>
       )}
 
-      {!loading && error && <ErrorState message={error} onRetry={loadTransactions} />}
+      {!loading && error && <ErrorState message={error} onRetry={reload} />}
 
       {!loading && !error && transactions?.length === 0 && (
         <EmptyState

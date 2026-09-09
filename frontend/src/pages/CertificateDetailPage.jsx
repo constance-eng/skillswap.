@@ -1,50 +1,39 @@
-import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Printer, ArrowLeft } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
 import { Logo } from "../components/Logo";
 
+async function loadCertificate(transactionId, idToken) {
+  const certData = await apiRequest(`/certificates/${transactionId}`, { token: idToken });
+  const certificate = certData.certificate;
+
+  const [skillsData, learner, teacher] = await Promise.all([
+    apiRequest("/skills"),
+    apiRequest(`/users/${certificate.learnerId}/public`),
+    apiRequest(`/users/${certificate.teacherId}/public`),
+  ]);
+
+  const skill = skillsData.skills.find((s) => s.skillId === certificate.skillId);
+
+  return {
+    certificate,
+    skillTitle: skill?.title ?? "a skill on SkillSwap",
+    learnerName: learner.user.name,
+    teacherName: teacher.user.name,
+  };
+}
+
 export function CertificateDetailPage() {
   const { transactionId } = useParams();
   const { idToken } = useAuth();
-
-  const [certificate, setCertificate] = useState(null);
-  const [skillTitle, setSkillTitle] = useState(null);
-  const [learnerName, setLearnerName] = useState(null);
-  const [teacherName, setTeacherName] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const certData = await apiRequest(`/certificates/${transactionId}`, { token: idToken });
-        const cert = certData.certificate;
-        setCertificate(cert);
-
-        const [skillsData, learner, teacher] = await Promise.all([
-          apiRequest("/skills"),
-          apiRequest(`/users/${cert.learnerId}/public`),
-          apiRequest(`/users/${cert.teacherId}/public`),
-        ]);
-
-        const skill = skillsData.skills.find((s) => s.skillId === cert.skillId);
-        setSkillTitle(skill?.title ?? "a skill on SkillSwap");
-        setLearnerName(learner.user.name);
-        setTeacherName(teacher.user.name);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [transactionId, idToken]);
+  const { data, error, loading, reload } = useFetch(
+    () => loadCertificate(transactionId, idToken),
+    [transactionId, idToken]
+  );
 
   if (loading) {
     return (
@@ -57,11 +46,12 @@ export function CertificateDetailPage() {
   if (error) {
     return (
       <div className="max-w-3xl px-6 py-10 mx-auto">
-        <ErrorState message={error} onRetry={() => window.location.reload()} />
+        <ErrorState message={error} onRetry={reload} />
       </div>
     );
   }
 
+  const { certificate, skillTitle, learnerName, teacherName } = data;
   const date = new Date(certificate.issuedAt).toLocaleDateString(undefined, {
     month: "long",
     day: "numeric",

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Star, ShieldCheck, Coins } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
 
@@ -10,33 +11,20 @@ export function TeacherDetailPage() {
   const { id: teacherId } = useParams();
   const { idToken, userId, profile, refreshProfile } = useAuth();
 
-  const [teacher, setTeacher] = useState(null);
-  const [teacherSkills, setTeacherSkills] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, error, loading, reload } = useFetch(async () => {
+    const [teacherData, skillsData] = await Promise.all([
+      apiRequest(`/users/${teacherId}/public`),
+      apiRequest("/skills"),
+    ]);
+    return {
+      teacher: teacherData.user,
+      teacherSkills: skillsData.skills.filter((s) => s.teacherId === teacherId),
+    };
+  }, [teacherId]);
+  const { teacher, teacherSkills } = data ?? {};
+
   const [bookingSkillId, setBookingSkillId] = useState(null);
   const [bookingMessage, setBookingMessage] = useState("");
-
-  async function loadData() {
-    setLoading(true);
-    setError(null);
-    try {
-      const [teacherData, skillsData] = await Promise.all([
-        apiRequest(`/users/${teacherId}/public`),
-        apiRequest("/skills"),
-      ]);
-      setTeacher(teacherData.user);
-      setTeacherSkills(skillsData.skills.filter((s) => s.teacherId === teacherId));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadData();
-  }, [teacherId]);
 
   const isOwnProfile = userId === teacherId;
   const hasEnoughCredits = (profile?.creditBalance ?? 0) >= 10;
@@ -73,7 +61,7 @@ export function TeacherDetailPage() {
   if (error) {
     return (
       <div className="max-w-2xl px-6 py-8 mx-auto">
-        <ErrorState message={error} onRetry={loadData} />
+        <ErrorState message={error} onRetry={reload} />
       </div>
     );
   }

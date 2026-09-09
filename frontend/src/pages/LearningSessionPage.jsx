@@ -1,36 +1,28 @@
-import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Link2, MapPin, Calendar, MessageSquare } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
+
+async function loadSession(transactionId, idToken) {
+  try {
+    const data = await apiRequest(`/sessions/${transactionId}`, { token: idToken });
+    return { session: data.session, notFound: false };
+  } catch (err) {
+    if (err.status === 404) return { session: null, notFound: true };
+    throw err;
+  }
+}
 
 export function LearningSessionPage() {
   const { transactionId } = useParams();
   const { idToken } = useAuth();
-  const [session, setSession] = useState(null);
-  const [notFound, setNotFound] = useState(false);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      setNotFound(false);
-      try {
-        const data = await apiRequest(`/sessions/${transactionId}`, { token: idToken });
-        setSession(data.session);
-      } catch (err) {
-        if (err.status === 404) setNotFound(true);
-        else setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [transactionId, idToken]);
+  const { data, error, loading, reload } = useFetch(
+    () => loadSession(transactionId, idToken),
+    [transactionId, idToken]
+  );
 
   if (loading) {
     return (
@@ -43,10 +35,12 @@ export function LearningSessionPage() {
   if (error) {
     return (
       <div className="max-w-lg px-6 py-8 mx-auto">
-        <ErrorState message={error} onRetry={() => window.location.reload()} />
+        <ErrorState message={error} onRetry={reload} />
       </div>
     );
   }
+
+  const { session, notFound } = data;
 
   return (
     <div className="max-w-lg px-6 py-8 mx-auto">

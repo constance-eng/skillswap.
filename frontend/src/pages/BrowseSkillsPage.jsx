@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { apiRequest } from "../api/client";
+import { useFetch } from "../hooks/useFetch";
 import { TeacherCard } from "../components/TeacherCard";
 import { Skeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
@@ -10,29 +11,13 @@ import { ErrorState } from "../components/ErrorState";
 const CATEGORIES = ["all", "programming", "music", "language", "design", "general"];
 
 export function BrowseSkillsPage() {
-  const [skills, setSkills] = useState(null);
   const [searchParams] = useSearchParams();
   const [category, setCategory] = useState(searchParams.get("category") || "all");
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  async function loadSkills() {
-    setLoading(true);
-    setError(null);
-    try {
-      const query = category === "all" ? "" : `?category=${category}`;
-      const data = await apiRequest(`/skills${query}`);
-      setSkills(data.skills);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadSkills();
+  const { data: skills, error, loading, reload } = useFetch(async () => {
+    const query = category === "all" ? "" : `?category=${category}`;
+    return (await apiRequest(`/skills${query}`)).skills;
   }, [category]);
 
   const visibleSkills = skills?.filter((s) =>
@@ -87,7 +72,7 @@ export function BrowseSkillsPage() {
         </div>
       )}
 
-      {!loading && error && <ErrorState message={error} onRetry={loadSkills} />}
+      {!loading && error && <ErrorState message={error} onRetry={reload} />}
 
       {!loading && !error && visibleSkills?.length === 0 && (
         <EmptyState
